@@ -25,31 +25,29 @@ def inicializar_ferramentas(vector_store):
     @tool
     def consultar_resumo_paciente(pergunta: str) -> str:
         """
-        Usa esta ferramenta APENAS para responder a perguntas sobre o que 
-        foi falado na consulta do paciente (sintomas, histórico, resumo da consulta).
-        NUNCA a uses para procurar conselhos gerais.
+        Use this tool ONLY to find information about the specific patient's appointment (their symptoms, diagnosis, doctor's notes).
+        If you need to know WHAT condition the patient has before giving advice, use this tool first to find out.
         """
         resultados = vector_store.similarity_search(
             pergunta,
             k=3,
-            filter={"tipo": "consulta_medica"} # Só lê a transcrição do áudio!
+            filter={"tipo": "consulta_medica"}
         )
         return formatar_contexto(resultados)
 
     @tool
     def consultar_literatura_medica(pergunta: str) -> str:
         """
-        Usa esta ferramenta para procurar informações científicas, conselhos de estilo de vida, 
-        tratamentos gerais, diagnósticos e alertas nos manuais médicos.
+        Use this tool to find medical knowledge, treatments, lifestyle habits, and guidelines from medical manuals.
+        IMPORTANT: You can use this AFTER finding the patient's diagnosis to provide specific medical advice for their exact condition.
         """
         resultados = vector_store.similarity_search(
             pergunta,
             k=4,
-            filter={"tipo": "conhecimento_medico"} # Só lê os PDFs!
+            filter={"tipo": "conhecimento_medico"}
         )
         return formatar_contexto(resultados)
 
-    # Entregamos apenas as 2 ferramentas com os filtros
     return [consultar_resumo_paciente, consultar_literatura_medica]
 
 
@@ -70,7 +68,8 @@ def criar_agente(vector_store):
         RULE 3: If you detect any emergency situation, immediately advise contacting 112 or going to the emergency room.
         RULE 4: Maintain a welcoming tone and never try to replace the human doctor. Respond in European Portuguese.
         RULE 5: Do not apologize every time you start a sentence, only when you make a mistake!
-        RULE 6: Never mention that you are accessing the appointment transcription. If the patient asks something about the appointment, simply use the data you have regarding the transcription without explaining the process."""),
+        RULE 6: Never mention that you are accessing the appointment transcription. If the patient asks something about the appointment, simply use the data you have regarding the transcription without explaining the process.
+        RULE 7: You are allowed to use multiple tools in sequence. If a user asks for general advice (e.g., "what habits should I adopt?"), FIRST use 'consultar_resumo_paciente' to discover their medical condition, and THEN use 'consultar_literatura_medica' to find the recommended habits for that specific condition."""),
         # guardamos a conversa passada.
         MessagesPlaceholder(variable_name="chat_history"),
         
