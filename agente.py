@@ -25,6 +25,16 @@ def inicializar_ferramentas(retriever):
     _retriever = retriever
 
     @tool
+    def resumo_da_consulta(pergunta: str) -> str:
+        """
+        Use this tool when the user asks for a general summary of the appointment, 
+        what was discussed, what the patient felt, or what the doctor said.
+        """
+        # Injetamos palavras que tipicamente existem numa transcrição médica
+        docs = _retriever.invoke("paciente relata médico queixas recomenda sintomas história clínica")
+        return formatar_contexto(docs)
+
+    @tool
     def explicar_diagnostico(pergunta: str) -> str:
         """
         Use this tool to explain diagnoses, diseases, causes of health problems, 
@@ -61,7 +71,7 @@ def inicializar_ferramentas(retriever):
         docs = _retriever.invoke(pergunta + " próxima consulta emergência urgência perigo atenção")
         return formatar_contexto(docs)
 
-    return [explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas]
+    return [explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas, resumo_da_consulta]
 
 
 def criar_agente(retriever):
