@@ -275,8 +275,7 @@ def inicializar_rag(pasta_pdfs, texto_transcricao, nome_audio):
     total_final = vector_store._collection.count()
     print(f"✅ DB final: {total_final} chunks (PDFs + consulta atual)")
 
-    # ── 3. Teste rápido para confirmar ────────────────────────
-    testar_retriever(vector_store, texto_transcricao[:50])
+    
 
     # ── 4. Retriever ──────────────────────────────────────────
     retriever = criar_retriever(vector_store)
