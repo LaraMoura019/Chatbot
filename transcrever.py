@@ -43,11 +43,8 @@ def transcricao(ficheiro_audio, ficheiro_txt, language="en"):
     with tqdm(total=info.duration, unit="s", desc="A transcrever", bar_format="{l_bar}{bar}| {n:.2f}/{total_fmt} seg") as pbar:
         for segmento in segmentos:
             texto_completo += segmento.text + " "
-            
-            # O tqdm precisa de saber quanto avançou.
-            # Nós calculamos a diferença entre onde o segmento acabou e onde a barra está agora.
             pbar.update(segmento.end - pbar.n)
-    
+
     texto_completo = texto_completo.strip()
     
     # Guardar transcrição em ficheiro

@@ -4,20 +4,19 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.messages import HumanMessage, AIMessage
 
-# Variável global para guardar o  motor de busca
+# Global variable to store the search engine (retriever)
 _retriever = None
 
 def formatar_contexto(docs):
     """
-    Esta função pega nos pedaços de texto (chunks) que o retriever encontrou
-    e junta-os todos num único texto limpo, separado por parágrafos.
-    Isto facilita a leitura.
+    Takes the chunks of text found by the retriever and joins them 
+    into a single, clean text separated by paragraphs for easier reading.
     """
     textos = []
     for doc in docs:
         textos.append(doc.page_content)
     
-    # Junta os textos todos com duas quebras de linha entre eles
+    # Join all texts with double line breaks between them
     return "\n\n".join(textos)
 
 
@@ -26,20 +25,20 @@ def inicializar_ferramentas(retriever):
     _retriever = retriever
 
     @tool
-    def explicar_diagnostico(pergunta):
+    def explicar_diagnostico(pergunta: str) -> str:
         """
-        Usa esta ferramenta para explicar diagnósticos, doenças, causas de problemas 
-        e a razão dos sintomas do paciente. 
+        Use this tool to explain diagnoses, diseases, causes of health problems, 
+        and the reasons behind the patient's symptoms.
         """
-        # Adicionar palavras-chave genéricas para ajudar na pesquisa
+        # Appending Portuguese keywords to help the semantic search
         docs = _retriever.invoke(pergunta + " diagnóstico explicação sintomas causa")
         return formatar_contexto(docs)
 
     @tool
     def pesquisar_tratamentos(pergunta: str) -> str:
         """
-        Usa esta ferramenta para perguntas sobre tratamentos, medicamentos, 
-        comprimidos, dosagens, receitas médicas, efeitos secundários ou exames.
+        Use this tool for questions regarding treatments, medications, 
+        pills, dosages, medical prescriptions, side effects, or medical exams.
         """
         docs = _retriever.invoke(pergunta + " medicação tratamento dose exames receita")
         return formatar_contexto(docs)
@@ -47,8 +46,8 @@ def inicializar_ferramentas(retriever):
     @tool
     def conselhos_estilo_vida(pergunta: str) -> str:
         """
-        Usa esta ferramenta para dúvidas sobre o dia a dia: alimentação, 
-        exercício físico, sono, postura, stress e hábitos de vida.
+        Use this tool for questions about daily life and habits: nutrition, 
+        diet, physical exercise, sleep, posture, and stress management.
         """
         docs = _retriever.invoke(pergunta + " hábitos alimentação exercício recomendações")
         return formatar_contexto(docs)
@@ -56,8 +55,8 @@ def inicializar_ferramentas(retriever):
     @tool
     def proximos_passos_e_alertas(pergunta: str) -> str:
         """
-        Usa esta ferramenta para saber quando o paciente deve voltar ao médico, 
-        quais os próximos passos, ou quais os sinais de perigo (urgência).
+        Use this tool to find out when the patient should return to the doctor, 
+        what the next steps are, or what the warning signs/emergency triggers are.
         """
         docs = _retriever.invoke(pergunta + " próxima consulta emergência urgência perigo atenção")
         return formatar_contexto(docs)
@@ -144,10 +143,33 @@ def iniciar_chat(executor):
             print(f"Ups, houve um erro: {e}")
 
 # ─────────────────────────────────────────────
-# COMO CORRER ISTO TUDO NO FINAL:
+# COMO CORRER ISTO TUDO NO FINAL (ATUALIZADO):
 # ─────────────────────────────────────────────
-from criar_rag import inicializar_rag
+# Importamos as funções novas do ficheiro RAG
+from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
 from transcrever import transcricao
-retriever, vs = inicializar_rag("manuais_medicos",transcricao("./audios/diabetes.mp3","diabetes.txt"),"diabetes.mp3")
-executor = criar_agente(retriever)
-iniciar_chat(executor)
+
+# 1. Carrega a base de dados com os manuais médicos (rápido se já existir)
+vs = inicializar_base_medica("./manuais_medicos")
+
+if vs:
+    # 2. Fazemos a transcrição do áudio
+    texto_transcrito = transcricao("./audios/diabetes.mp3", "diabetes.txt")
+    
+    # 3. Guardamos a consulta no banco de dados, associando a um Paciente e a uma Data!
+    vs_atualizado = adicionar_nova_consulta_ao_rag(
+        pasta_db="./chroma_db",
+        texto_transcricao=texto_transcrito,
+        nome_audio="diabetes.mp3",
+        id_paciente="PAC-001",
+        data_consulta="2026-05-01",
+        tema="diabetes"
+    )
+    
+    # 4. Criamos o retriever ESPECÍFICO para o PAC-001
+    # Assim o Agente só vai ler os PDFs médicos e as consultas deste paciente específico
+    retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente="PAC-001")
+    
+    # 5. Entregamos os "olhos" certos ao Agente e iniciamos o chat!
+    executor = criar_agente(retriever_do_paciente)
+    iniciar_chat(executor)
