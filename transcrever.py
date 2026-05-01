@@ -1,5 +1,6 @@
 from faster_whisper import WhisperModel
 import os
+from tqdm import tqdm
 
 def transcricao(ficheiro_audio, ficheiro_txt, language="en"):
     """
@@ -19,8 +20,10 @@ def transcricao(ficheiro_audio, ficheiro_txt, language="en"):
         raise FileNotFoundError(f"Ficheiro de áudio não encontrado: {ficheiro_audio}")
     
     modelo_tamanho = "large-v3"
-    model = WhisperModel(modelo_tamanho, device="cpu", compute_type="int8")
-    
+    #model = WhisperModel(modelo_tamanho, device="cpu", compute_type="int8")
+    model = WhisperModel(modelo_tamanho, device="cuda", compute_type="float16")
+
+    print("Transcrição iniciada")
     # Fazer a transcrição
     segmentos, info = model.transcribe(
         ficheiro_audio, 
@@ -35,14 +38,23 @@ def transcricao(ficheiro_audio, ficheiro_txt, language="en"):
     
     # Construir texto com timestamps 
     texto_completo = ""
+
+    # Cria a barra de progresso baseada na duração total do áudio (info.duration)
+    with tqdm(total=info.duration, unit="s", desc="A transcrever", bar_format="{l_bar}{bar}| {n:.2f}/{total_fmt} seg") as pbar:
+        for segmento in segmentos:
+            texto_completo += segmento.text + " "
+            
+            # O tqdm precisa de saber quanto avançou.
+            # Nós calculamos a diferença entre onde o segmento acabou e onde a barra está agora.
+            pbar.update(segmento.end - pbar.n)
     
-    for segmento in segmentos:
-        texto_completo += segmento.text + " "
     texto_completo = texto_completo.strip()
     
     # Guardar transcrição em ficheiro
     with open(ficheiro_txt, "w", encoding="utf-8") as ficheiro:
         ficheiro.write(texto_completo)
+
+    print("Transcrição concluída")
     
     return texto_completo
 
