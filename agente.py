@@ -69,7 +69,7 @@ def criar_agente(retriever):
     ferramentas = inicializar_ferramentas(retriever)
     
     # Inicializamos o cérebro (LLM)
-    llm = ChatOllama(model="qwen2.5:7b", temperature=0) 
+    llm = ChatOllama(model="llama3.1:8b", temperature=0) 
     
     # O Prompt é a "Personalidade" do nosso bot e as suas regras
     prompt = ChatPromptTemplate.from_messages([
@@ -81,7 +81,7 @@ def criar_agente(retriever):
         REGRA 2: Se o paciente perguntar sobre algo que não foi falado na consulta ou que não está nos teus manuais, diz honestamente: "Essa informação não foi discutida na sua consulta, recomendo que contacte o seu médico."
         REGRA 3: Se detetares alguma situação de emergência, aconselha imediatamente o contacto com o 112 ou a ida às urgências.
         REGRA 4: Mantém um tom acolhedor e nunca tentes substituir o médico humano. Responde em Português de Portugal.
-        REGRA 5: NUNCA peças ao paciente para te contar o que aconteceu na consulta nem peças a transcrição. Tu JÁ TENS acesso a essa informação! Usa SEMPRE a ferramenta 'consultar_resumo_paciente' antes de responder a perguntas sobre a consulta."""),
+        REGRA 5: Não peças desculpa sempre que inicias uma frase, apenas quando  cometeres um lapso!"""),
         
         # guardamos a conversa passada.
         MessagesPlaceholder(variable_name="chat_history"),
