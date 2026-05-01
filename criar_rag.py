@@ -216,73 +216,25 @@ def criar_retriever(vector_store, k= 5):
 
 def inicializar_rag(pasta_pdfs, texto_transcricao, nome_audio):
     """
-    Lógica corrigida:
-    - PDFs → DB persistente (só recria se não existir)
-    - Transcrição → adicionada SEMPRE que há uma nova consulta
+    Junta tudo numa função só.
+    Ordem importante:
+    1. Carregar fontes (PDFs + transcrição)
+    2. Dividir em chunks
+    3. Criar/carregar vector store
+    4. Criar retriever
     """
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
-
-    # ── 1. PDFs — carrega da DB se já existir ──────────────────
-    pasta_db_pdfs = "./chroma_db_pdfs"
-    db_pdfs_existe = os.path.exists(pasta_db_pdfs) and os.listdir(pasta_db_pdfs)
-
-    if db_pdfs_existe:
-        print("📂 A carregar DB dos PDFs existente...")
-        vector_store = Chroma(
-            persist_directory=pasta_db_pdfs,
-            embedding_function=embeddings
-        )
-        total = vector_store._collection.count()
-
-        if total == 0:
-            print("⚠️  DB vazia! A recriar...")
-            shutil.rmtree(pasta_db_pdfs)
-            db_pdfs_existe = False
-        else:
-            print(f"✅ DB dos PDFs carregada ({total} chunks)")
-
-    if not db_pdfs_existe:
-        print("🔨 A criar DB dos PDFs...")
-        docs_pdf = carregar_pdfs(pasta_pdfs)
-        chunks_pdf = dividir_em_chunks(docs_pdf)
-        vector_store = Chroma.from_documents(
-            documents=chunks_pdf,
-            embedding=embeddings,
-            persist_directory=pasta_db_pdfs
-        )
-        print(f"✅ DB dos PDFs criada ({vector_store._collection.count()} chunks)")
-
-    # ── 2. Transcrição — adicionada SEMPRE ────────────────────
-    # Cada consulta nova substitui a anterior
-    # Para isso apagamos a coleção de transcrições anteriores
-    
-    print(f"📝 A adicionar transcrição '{nome_audio}'...")
-    
+    docs_pdf = carregar_pdfs(pasta_pdfs)
     docs_consulta = carregar_transcricao(texto_transcricao, nome_audio)
-    chunks_consulta = dividir_em_chunks(docs_consulta)
+    todos_docs = docs_pdf + docs_consulta      # junta as duas fontes
 
-    # Apaga transcrições anteriores para não acumular consultas antigas
-    colecao = vector_store._collection
-    ids_consulta = colecao.get(where={"tipo": "consulta_medica"})["ids"]
-    
-    if ids_consulta:
-        print(f"🗑️  A remover {len(ids_consulta)} chunks da consulta anterior...")
-        colecao.delete(ids=ids_consulta)
-
-    # Adiciona a transcrição nova
-    vector_store.add_documents(chunks_consulta)
-    
-    total_final = vector_store._collection.count()
-    print(f"✅ DB final: {total_final} chunks (PDFs + consulta atual)")
-
-    
-
-    # ── 4. Retriever ──────────────────────────────────────────
+    chunks = dividir_em_chunks(todos_docs)
+    vector_store = criar_vector_store(chunks)
     retriever = criar_retriever(vector_store)
+
     return retriever, vector_store
 
 
 # --- Uso ---
 #from transcrever import transcricao
-#texto = transcricao("./audios/Smoking.mp3", "Smoking.txt")
-#retriever, vs = inicializar_rag("./manuais_medicos", texto, "Smoking.mp3")
+#texto = transcricao("./audios/diabetes.mp3", "diabetes.txt")
+#retriever, vs = inicializar_rag("./manuais_medicos", texto, "diabetes.mp3")

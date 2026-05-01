@@ -21,74 +21,52 @@ def formatar_contexto(docs):
     return "\n\n".join(textos)
 
 
-# Passamos a usar a vector_store em vez do retriever genérico
-def inicializar_ferramentas(vector_store):
+def inicializar_ferramentas(retriever):
+    global _retriever
+    _retriever = retriever
 
     @tool
-    def ler_resumo_da_consulta(pergunta: str) -> str:
+    def explicar_diagnostico(pergunta):
         """
-        PASSO 1: Usa SEMPRE esta ferramenta PRIMEIRO para descobrir o que 
-        foi falado na consulta e qual é a doença ou sintomas do paciente.
+        Usa esta ferramenta para explicar diagnósticos, doenças, causas de problemas 
+        e a razão dos sintomas do paciente. 
         """
-        docs = vector_store.similarity_search(
-            pergunta, k=3, filter={"tipo": "consulta_medica"} # Só lê o áudio!
-        )
+        # Adicionar palavras-chave genéricas para ajudar na pesquisa
+        docs = _retriever.invoke(pergunta + " diagnóstico explicação sintomas causa")
         return formatar_contexto(docs)
 
     @tool
-    def explicar_diagnostico(doenca_ou_sintoma: str) -> str:
+    def pesquisar_tratamentos(pergunta: str) -> str:
         """
-        PASSO 2: Usa esta ferramenta para explicar a doença DO PACIENTE.
-        Obrigatório: Passa o nome da doença (ex: 'diabetes') e não a pergunta toda.
+        Usa esta ferramenta para perguntas sobre tratamentos, medicamentos, 
+        comprimidos, dosagens, receitas médicas, efeitos secundários ou exames.
         """
-        # Procura apenas nos PDFs médicos, focando na doença específica
-        docs = vector_store.similarity_search(
-            doenca_ou_sintoma + " diagnóstico explicação sintomas causa", 
-            k=3, filter={"tipo": "conhecimento_medico"}
-        )
+        docs = _retriever.invoke(pergunta + " medicação tratamento dose exames receita")
         return formatar_contexto(docs)
 
     @tool
-    def pesquisar_tratamentos(doenca_ou_sintoma: str) -> str:
+    def conselhos_estilo_vida(pergunta: str) -> str:
         """
-        PASSO 2: Usa para ver tratamentos e medicamentos para a doença DO PACIENTE.
-        Obrigatório: Passa o nome da doença (ex: 'diabetes').
+        Usa esta ferramenta para dúvidas sobre o dia a dia: alimentação, 
+        exercício físico, sono, postura, stress e hábitos de vida.
         """
-        docs = vector_store.similarity_search(
-            doenca_ou_sintoma + " medicação tratamento dose exames receita", 
-            k=3, filter={"tipo": "conhecimento_medico"}
-        )
+        docs = _retriever.invoke(pergunta + " hábitos alimentação exercício recomendações")
         return formatar_contexto(docs)
 
     @tool
-    def conselhos_estilo_vida(doenca_ou_sintoma: str) -> str:
+    def proximos_passos_e_alertas(pergunta: str) -> str:
         """
-        PASSO 2: Usa para ver hábitos e alimentação para a doença DO PACIENTE.
-        Obrigatório: Passa o nome da doença (ex: 'diabetes').
+        Usa esta ferramenta para saber quando o paciente deve voltar ao médico, 
+        quais os próximos passos, ou quais os sinais de perigo (urgência).
         """
-        docs = vector_store.similarity_search(
-            doenca_ou_sintoma + " hábitos alimentação exercício recomendações", 
-            k=3, filter={"tipo": "conhecimento_medico"}
-        )
+        docs = _retriever.invoke(pergunta + " próxima consulta emergência urgência perigo atenção")
         return formatar_contexto(docs)
 
-    @tool
-    def proximos_passos_e_alertas(doenca_ou_sintoma: str) -> str:
-        """
-        PASSO 2: Usa para ver sinais de perigo da doença DO PACIENTE.
-        Obrigatório: Passa o nome da doença (ex: 'diabetes').
-        """
-        docs = vector_store.similarity_search(
-            doenca_ou_sintoma + " próxima consulta emergência urgência perigo", 
-            k=3, filter={"tipo": "conhecimento_medico"}
-        )
-        return formatar_contexto(docs)
-
-    return [ler_resumo_da_consulta, explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas]
+    return [explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas]
 
 
-def criar_agente(vector_store):
-    ferramentas = inicializar_ferramentas(vector_store)
+def criar_agente(retriever):
+    ferramentas = inicializar_ferramentas(retriever)
     
     # Inicializamos o cérebro (LLM)
     llm = ChatOllama(model="llama3.1:8b", temperature=0) 
@@ -171,5 +149,5 @@ def iniciar_chat(executor):
 from criar_rag import inicializar_rag
 from transcrever import transcricao
 retriever, vs = inicializar_rag("manuais_medicos",transcricao("./audios/diabetes.mp3","diabetes.txt"),"diabetes.mp3")
-executor = criar_agente(vs)
+executor = criar_agente(retriever)
 iniciar_chat(executor)
