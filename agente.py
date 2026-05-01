@@ -67,8 +67,9 @@ def inicializar_ferramentas(retriever, vector_store, id_paciente):
     @tool
     def resumo_da_consulta(pergunta: str) -> str:
         """
-        Use this tool when the user asks for a general summary of the appointment, 
-        what was discussed, what the patient felt, or what the doctor said.
+        Use this tool ONLY when the user EXPLICITLY asks for a general summary of the appointment, 
+        what was discussed, or what the doctor said. 
+        DO NOT use this tool for simple greetings like "Olá" or "Bom dia".
         """
         # Vai diretamente à base de dados buscar APENAS os textos da consulta deste paciente
         docs = _vector_store.similarity_search(
@@ -106,7 +107,7 @@ def criar_agente(retriever, vector_store, id_paciente):
         RULE 6: Never mention that you are accessing the appointment transcription or using tools. 
         
         # --- NOVAS REGRAS PARA CONVERSA E EMPATIA ---
-        RULE 7: SMALL TALK: If the user just says "Olá", "Bom dia", or thanks you, DO NOT use any tools. Respond directly in a polite, warm, and brief manner.
+        RULE 7: GREETINGS AND SMALL TALK: If the user input is just a greeting like "Olá", "Bom dia", "Tudo bem", or a thank you, YOU MUST NOT CALL ANY TOOLS. Reply strictly from your own knowledge with a short, warm, and welcoming greeting in European Portuguese. Wait for the user to ask a specific question before using tools.
         RULE 8: EMOTIONAL SUPPORT: If the user is anxious, scared, nervous, or sad, DO NOT immediately search for medical facts. First, validate their feelings with deep empathy and reassure them. Use a comforting, calm, and supportive tone. Only use tools if they also ask a factual question alongside their emotional concern."""),
         
         MessagesPlaceholder(variable_name="chat_history"),
