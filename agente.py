@@ -80,7 +80,8 @@ def criar_agente(retriever):
         REGRA 1: Baseia-te EXCLUSIVAMENTE nas ferramentas fornecidas (transcrição da consulta e manuais).
         REGRA 2: Se o paciente perguntar sobre algo que não foi falado na consulta ou que não está nos teus manuais, diz honestamente: "Essa informação não foi discutida na sua consulta, recomendo que contacte o seu médico."
         REGRA 3: Se detetares alguma situação de emergência, aconselha imediatamente o contacto com o 112 ou a ida às urgências.
-        REGRA 4: Mantém um tom acolhedor e nunca tentes substituir o médico humano. Responde em Português de Portugal."""),
+        REGRA 4: Mantém um tom acolhedor e nunca tentes substituir o médico humano. Responde em Português de Portugal.
+        REGRA 5: NUNCA peças ao paciente para te contar o que aconteceu na consulta nem peças a transcrição. Tu JÁ TENS acesso a essa informação! Usa SEMPRE a ferramenta 'consultar_resumo_paciente' antes de responder a perguntas sobre a consulta."""),
         
         # guardamos a conversa passada.
         MessagesPlaceholder(variable_name="chat_history"),
