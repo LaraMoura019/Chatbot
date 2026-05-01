@@ -4,7 +4,8 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.messages import HumanMessage, AIMessage
 
-
+# Variável global para guardar o  motor de busca
+_retriever = None
 
 def formatar_contexto(docs):
     """
@@ -20,39 +21,52 @@ def formatar_contexto(docs):
     return "\n\n".join(textos)
 
 
-def inicializar_ferramentas(vector_store):
-    
-    @tool
-    def consultar_resumo_paciente(pergunta: str) -> str:
-        """
-        Use this tool ONLY to find information about the specific patient's appointment (their symptoms, diagnosis, doctor's notes).
-        If you need to know WHAT condition the patient has before giving advice, use this tool first to find out.
-        """
-        resultados = vector_store.similarity_search(
-            pergunta,
-            k=3,
-            filter={"tipo": "consulta_medica"}
-        )
-        return formatar_contexto(resultados)
+def inicializar_ferramentas(retriever):
+    global _retriever
+    _retriever = retriever
 
     @tool
-    def consultar_literatura_medica(pergunta: str) -> str:
+    def explicar_diagnostico(pergunta):
         """
-        Use this tool to find medical knowledge, treatments, lifestyle habits, and guidelines from medical manuals.
-        IMPORTANT: You can use this AFTER finding the patient's diagnosis to provide specific medical advice for their exact condition.
+        Usa esta ferramenta para explicar diagnósticos, doenças, causas de problemas 
+        e a razão dos sintomas do paciente. 
         """
-        resultados = vector_store.similarity_search(
-            pergunta,
-            k=4,
-            filter={"tipo": "conhecimento_medico"}
-        )
-        return formatar_contexto(resultados)
+        # Adicionar palavras-chave genéricas para ajudar na pesquisa
+        docs = _retriever.invoke(pergunta + " diagnóstico explicação sintomas causa")
+        return formatar_contexto(docs)
 
-    return [consultar_resumo_paciente, consultar_literatura_medica]
+    @tool
+    def pesquisar_tratamentos(pergunta: str) -> str:
+        """
+        Usa esta ferramenta para perguntas sobre tratamentos, medicamentos, 
+        comprimidos, dosagens, receitas médicas, efeitos secundários ou exames.
+        """
+        docs = _retriever.invoke(pergunta + " medicação tratamento dose exames receita")
+        return formatar_contexto(docs)
+
+    @tool
+    def conselhos_estilo_vida(pergunta: str) -> str:
+        """
+        Usa esta ferramenta para dúvidas sobre o dia a dia: alimentação, 
+        exercício físico, sono, postura, stress e hábitos de vida.
+        """
+        docs = _retriever.invoke(pergunta + " hábitos alimentação exercício recomendações")
+        return formatar_contexto(docs)
+
+    @tool
+    def proximos_passos_e_alertas(pergunta: str) -> str:
+        """
+        Usa esta ferramenta para saber quando o paciente deve voltar ao médico, 
+        quais os próximos passos, ou quais os sinais de perigo (urgência).
+        """
+        docs = _retriever.invoke(pergunta + " próxima consulta emergência urgência perigo atenção")
+        return formatar_contexto(docs)
+
+    return [explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas]
 
 
-def criar_agente(vector_store):
-    ferramentas = inicializar_ferramentas(vector_store)
+def criar_agente(retriever):
+    ferramentas = inicializar_ferramentas(retriever)
     
     # Inicializamos o cérebro (LLM)
     llm = ChatOllama(model="llama3.1:8b", temperature=0) 
@@ -68,8 +82,7 @@ def criar_agente(vector_store):
         RULE 3: If you detect any emergency situation, immediately advise contacting 112 or going to the emergency room.
         RULE 4: Maintain a welcoming tone and never try to replace the human doctor. Respond in European Portuguese.
         RULE 5: Do not apologize every time you start a sentence, only when you make a mistake!
-        RULE 6: Never mention that you are accessing the appointment transcription. If the patient asks something about the appointment, simply use the data you have regarding the transcription without explaining the process.
-        RULE 7: You are allowed to use multiple tools in sequence. If a user asks for general advice (e.g., "what habits should I adopt?"), FIRST use 'consultar_resumo_paciente' to discover their medical condition, and THEN use 'consultar_literatura_medica' to find the recommended habits for that specific condition."""),
+        RULE 6: Never mention that you are accessing the appointment transcription. If the patient asks something about the appointment, simply use the data you have regarding the transcription without explaining the process."""),
         # guardamos a conversa passada.
         MessagesPlaceholder(variable_name="chat_history"),
         
@@ -136,5 +149,5 @@ def iniciar_chat(executor):
 from criar_rag import inicializar_rag
 from transcrever import transcricao
 retriever, vs = inicializar_rag("manuais_medicos",transcricao("./audios/diabetes.mp3","diabetes.txt"),"diabetes.mp3")
-executor = criar_agente(vs)
+executor = criar_agente(retriever)
 iniciar_chat(executor)
