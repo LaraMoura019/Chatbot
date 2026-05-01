@@ -194,21 +194,21 @@ if __name__ == "__main__":
 
     if vs:
         # 2. Transcribe the audio
-        texto_transcrito = transcricao("./audios/diabetes.mp3", "diabetes.txt")
+        texto_transcrito = transcricao("./audios/Smoking.mp3", "smoking.txt")
         
         # 3. Add the appointment to the database, tagged to a specific Patient and Date
         vs_atualizado = adicionar_nova_consulta_ao_rag(
             pasta_db="./chroma_db",
             texto_transcricao=texto_transcrito,
-            nome_audio="diabetes.mp3",
-            id_paciente="PAC-001",
+            nome_audio="smoling.mp3",
+            id_paciente="PAC-002",
             data_consulta="2026-05-01",
-            tema="diabetes"
+            tema="smoking"
         )
         
         # 4. Create the retriever SPECIFICALLY for PAC-001
-        retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente="PAC-001")
+        retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente="PAC-002")
         
         # 5. Build the agent and start the chat (Passing all 3 arguments!)
-        executor = criar_agente(retriever_do_paciente, vs_atualizado, "PAC-001")
+        executor = criar_agente(retriever_do_paciente, vs_atualizado, "PAC-002")
         iniciar_chat(executor)
