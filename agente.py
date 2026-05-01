@@ -87,8 +87,8 @@ def inicializar_ferramentas(vector_store):
     return [ler_resumo_da_consulta, explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas]
 
 
-def criar_agente(retriever):
-    ferramentas = inicializar_ferramentas(retriever)
+def criar_agente(vector_store):
+    ferramentas = inicializar_ferramentas(vector_store)
     
     # Inicializamos o cérebro (LLM)
     llm = ChatOllama(model="llama3.1:8b", temperature=0) 
@@ -171,5 +171,5 @@ def iniciar_chat(executor):
 from criar_rag import inicializar_rag
 from transcrever import transcricao
 retriever, vs = inicializar_rag("manuais_medicos",transcricao("./audios/diabetes.mp3","diabetes.txt"),"diabetes.mp3")
-executor = criar_agente(retriever)
+executor = criar_agente(vs)
 iniciar_chat(executor)
