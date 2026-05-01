@@ -69,7 +69,7 @@ def criar_agente(retriever):
     ferramentas = inicializar_ferramentas(retriever)
     
     # Inicializamos o cérebro (LLM)
-    llm = ChatOllama(model="gemma3:12b", temperature=0) 
+    llm = ChatOllama(model="qwen2.5:7b", temperature=0) 
     
     # O Prompt é a "Personalidade" do nosso bot e as suas regras
     prompt = ChatPromptTemplate.from_messages([
