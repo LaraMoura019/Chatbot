@@ -51,6 +51,8 @@ def inicializar_ferramentas(retriever, vector_store, id_paciente):
         """
         Use this tool for questions about daily life and habits: nutrition, 
         diet, physical exercise, sleep, posture, and stress management.
+        CRITICAL: Always include the patient's specific disease or condition in your input 
+        (e.g., if the patient has diabetes, input "diabetes lifestyle changes" instead of just "lifestyle changes").
         """
         docs = _retriever.invoke(pergunta + " hábitos alimentação exercício recomendações")
         return formatar_contexto(docs)
@@ -108,7 +110,8 @@ def criar_agente(retriever, vector_store, id_paciente):
         
         # --- NOVAS REGRAS PARA CONVERSA E EMPATIA ---
         RULE 7: GREETINGS AND SMALL TALK: If the user input is just a greeting like "Olá", "Bom dia", "Tudo bem", or a thank you, YOU MUST NOT CALL ANY TOOLS. Reply strictly from your own knowledge with a short, warm, and welcoming greeting in European Portuguese. Wait for the user to ask a specific question before using tools.
-        RULE 8: EMOTIONAL SUPPORT: If the user is anxious, scared, nervous, or sad, DO NOT immediately search for medical facts. First, validate their feelings with deep empathy and reassure them. Use a comforting, calm, and supportive tone. Only use tools if they also ask a factual question alongside their emotional concern."""),
+        RULE 8: EMOTIONAL SUPPORT: If the user is anxious, scared, nervous, or sad, DO NOT immediately search for medical facts. First, validate their feelings with deep empathy and reassure them. Use a comforting, calm, and supportive tone. Only use tools if they also ask a factual question alongside their emotional concern.
+        RULE 9: When answering questions about treatments, next steps, or lifestyle, ALWAYS check what the doctor specifically recommended in the appointment FIRST. Only use the medical manuals to complement or explain what the doctor said."""),
         
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
@@ -136,15 +139,29 @@ def iniciar_chat(executor):
     print("\nOlá! Sou o teu Assistente de Saúde. Como te posso ajudar hoje?")
     print("(Escreve 'sair' para terminar a conversa)\n")
     
-    # This list will store the conversation memory
     historico_conversa = []
+    
+    # Palavras que queremos intercetar antes de ir para a IA
+    saudacoes_basicas = ['ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'oi']
     
     while True:
         pergunta = input("Tu: ")
         
-        if pergunta.lower() == 'sair':
+        if pergunta.lower().strip() == 'sair':
             print("As melhoras! Até à próxima.")
             break
+            
+        # --- O NOSSO ESCUDO DE PYTHON ---
+        if pergunta.lower().strip() in saudacoes_basicas:
+            resposta_rapida = "Olá! Como te posso ajudar com as dúvidas sobre a tua consulta hoje?"
+            print(f"\nAssistente: {resposta_rapida}\n")
+            
+            # Guardamos na memória para a IA saber que já dissemos olá
+            historico_conversa.extend([
+                HumanMessage(content=pergunta),
+                AIMessage(content=resposta_rapida)
+            ])
+            continue # Volta para o início do loop sem chamar o LLM!
             
         try:
             # Send the question AND the memory to the Agent
