@@ -4,8 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.messages import HumanMessage, AIMessage
 
-# Variável global para guardar o  motor de busca
-_retriever = None
+
 
 def formatar_contexto(docs):
     """
@@ -21,52 +20,41 @@ def formatar_contexto(docs):
     return "\n\n".join(textos)
 
 
-def inicializar_ferramentas(retriever):
-    global _retriever
-    _retriever = retriever
+def inicializar_ferramentas(vector_store):
+    
+    @tool
+    def consultar_resumo_paciente(pergunta: str) -> str:
+        """
+        Usa esta ferramenta APENAS para responder a perguntas sobre o que 
+        foi falado na consulta do paciente (sintomas, histórico, resumo da consulta).
+        NUNCA a uses para procurar conselhos gerais.
+        """
+        resultados = vector_store.similarity_search(
+            pergunta,
+            k=3,
+            filter={"tipo": "consulta_medica"} # Só lê a transcrição do áudio!
+        )
+        return formatar_contexto(resultados)
 
     @tool
-    def explicar_diagnostico(pergunta):
+    def consultar_literatura_medica(pergunta: str) -> str:
         """
-        Usa esta ferramenta para explicar diagnósticos, doenças, causas de problemas 
-        e a razão dos sintomas do paciente. 
+        Usa esta ferramenta para procurar informações científicas, conselhos de estilo de vida, 
+        tratamentos gerais, diagnósticos e alertas nos manuais médicos.
         """
-        # Adicionar palavras-chave genéricas para ajudar na pesquisa
-        docs = _retriever.invoke(pergunta + " diagnóstico explicação sintomas causa")
-        return formatar_contexto(docs)
+        resultados = vector_store.similarity_search(
+            pergunta,
+            k=4,
+            filter={"tipo": "conhecimento_medico"} # Só lê os PDFs!
+        )
+        return formatar_contexto(resultados)
 
-    @tool
-    def pesquisar_tratamentos(pergunta: str) -> str:
-        """
-        Usa esta ferramenta para perguntas sobre tratamentos, medicamentos, 
-        comprimidos, dosagens, receitas médicas, efeitos secundários ou exames.
-        """
-        docs = _retriever.invoke(pergunta + " medicação tratamento dose exames receita")
-        return formatar_contexto(docs)
-
-    @tool
-    def conselhos_estilo_vida(pergunta: str) -> str:
-        """
-        Usa esta ferramenta para dúvidas sobre o dia a dia: alimentação, 
-        exercício físico, sono, postura, stress e hábitos de vida.
-        """
-        docs = _retriever.invoke(pergunta + " hábitos alimentação exercício recomendações")
-        return formatar_contexto(docs)
-
-    @tool
-    def proximos_passos_e_alertas(pergunta: str) -> str:
-        """
-        Usa esta ferramenta para saber quando o paciente deve voltar ao médico, 
-        quais os próximos passos, ou quais os sinais de perigo (urgência).
-        """
-        docs = _retriever.invoke(pergunta + " próxima consulta emergência urgência perigo atenção")
-        return formatar_contexto(docs)
-
-    return [explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas]
+    # Entregamos apenas as 2 ferramentas com os filtros
+    return [consultar_resumo_paciente, consultar_literatura_medica]
 
 
-def criar_agente(retriever):
-    ferramentas = inicializar_ferramentas(retriever)
+def criar_agente(vector_store):
+    ferramentas = inicializar_ferramentas(vector_store)
     
     # Inicializamos o cérebro (LLM)
     llm = ChatOllama(model="llama3.1:8b", temperature=0) 
@@ -149,5 +137,5 @@ def iniciar_chat(executor):
 from criar_rag import inicializar_rag
 from transcrever import transcricao
 retriever, vs = inicializar_rag("manuais_medicos",transcricao("./audios/diabetes.mp3","diabetes.txt"),"diabetes.mp3")
-executor = criar_agente(retriever)
+executor = criar_agente(vs)
 iniciar_chat(executor)
