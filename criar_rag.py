@@ -75,9 +75,9 @@ def dividir_em_chunks(documentos):
     print(f"{len(documentos)} documentos → {len(chunks)} chunks")
     return chunks
 
-# =====================================================================
-# FUNÇÕES DE GESTÃO DA BASE DE DADOS (O SEGREDO PARA VÁRIAS CONSULTAS)
-# =====================================================================
+# ====================================
+# FUNÇÕES DE GESTÃO DA BASE DE DADOS 
+# ====================================
 
 def inicializar_base_medica(pasta_pdfs, pasta_db="./chroma_db", modelo_embeddings="nomic-embed-text"):
     """

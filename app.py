@@ -1,127 +1,145 @@
 import streamlit as st
-import os
-import tempfile
-from faster_whisper import WhisperModel
-import ollama
-from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings
+from langchain_core.messages import HumanMessage, AIMessage
+import os 
+
+# Importamos as funções que já criaste nos teus outros ficheiros!
+# (Nota: substitui 'teu_ficheiro_do_agente' pelo nome real do teu ficheiro .py)
+from agente import criar_agente 
+from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
+from transcrever import transcricao
+
+# Configuração da página Web
+st.set_page_config(page_title="Assistente Médico AI", page_icon="🩺")
+st.title("🩺 Assistente Médico Virtual")
 
 # ==========================================
-# 1. CONFIGURAÇÕES DA PÁGINA E CACHE
+# 1. GESTÃO DE MEMÓRIA (SESSION STATE)
 # ==========================================
-st.set_page_config(page_title="Assistente Clínico EBM", page_icon="🩺", layout="centered")
-st.title("🩺 Assistente Clínico Pós-Consulta (RAG)")
+# Guardamos o histórico para a IA ler
+if "historico_ia" not in st.session_state:
+    st.session_state.historico_ia = []
 
-@st.cache_resource
-def carregar_modelos():
-    # Carregar Whisper
-    whisper = WhisperModel("large-v3", device="cpu", compute_type="int8")
-    # Carregar o RAG (ChromaDB)
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
-    vectorstore = Chroma(persist_directory="./db_medica", embedding_function=embeddings)
-    return whisper, vectorstore
+# Guardamos as mensagens para mostrar no ecrã bonito do Streamlit
+if "mensagens_ecra" not in st.session_state:
+    st.session_state.mensagens_ecra = [
+        {"role": "assistant", "content": "Olá! Sou o teu Assistente de Saúde. Como posso ajudar hoje?"}
+    ]
 
-modelo_whisper, vectorstore = carregar_modelos()
+# Guardamos o executor (o agente) para não ter de ser recriado a cada clique
+if "executor" not in st.session_state:
+    st.session_state.executor = None
 
-# ==========================================
-# 2. MEMÓRIA DE SESSÃO
-# ==========================================
-if "texto_consulta" not in st.session_state:
-    st.session_state.texto_consulta = None
-if "historico_chat" not in st.session_state:
-    st.session_state.historico_chat = []
 
 # ==========================================
-# 3. FASE DE UPLOAD (A CONSULTA)
+# 2. BARRA LATERAL (CONFIGURAÇÃO)
 # ==========================================
-if st.session_state.texto_consulta is None:
-    st.markdown("### Passo 1: Carregar a Gravação da Consulta")
-    st.info("O sistema já carregou os PDFs médicos na sua memória permanente.")
+with st.sidebar:
+    st.header("⚙️ Painel de Controlo")
+    st.write("Adicione a nova consulta ao sistema.")
     
-    ficheiro_audio = st.file_uploader("Arraste o áudio da consulta aqui (MP3, WAV)", type=['mp3', 'wav'])
-
-    if ficheiro_audio is not None:
-        with st.spinner("A transcrever a consulta... Isto pode demorar uns minutos."):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
-                temp_audio.write(ficheiro_audio.read())
-                caminho_temp = temp_audio.name
-            
-            segmentos, _ = modelo_whisper.transcribe(caminho_temp, beam_size=5, language="en")
-            texto_completo = "".join([s.text + " " for s in segmentos])
-            
-            st.session_state.texto_consulta = texto_completo
-            os.remove(caminho_temp)
-            st.rerun()
-
-# ==========================================
-# 4. FASE DE CHATBOT (RAG HÍBRIDO)
-# ==========================================
-else:
-    st.success("✅ Consulta e Manuais Médicos processados! O médico virtual está pronto.")
+    # 1. A Caixa mágica de Upload!
+    ficheiro_audio = st.file_uploader("Upload do áudio da consulta", type=["mp3", "wav", "m4a"])
     
-    # Se for a primeira mensagem, cria o contexto inicial
-    if len(st.session_state.historico_chat) == 0:
-        st.session_state.historico_chat.append({
-            "role": "assistant", 
-            "content": "Olá, sou o seu assistente clínico. Com base na sua consulta e nas normas da DGS, como posso ajudar hoje?"
-        })
-
-    # Mostrar histórico
-    for msg in st.session_state.historico_chat:
-        if msg["role"] != "system":
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
-
-    # A Pergunta do Paciente
-    pergunta_paciente = st.chat_input("Ex: Quais os cuidados a ter com os meus pés?")
-
-    if pergunta_paciente:
-        # 1. Mostrar pergunta
-        st.chat_message("user").write(pergunta_paciente)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("A cruzar a consulta com a literatura médica..."):
+    # 2. Informações para a Metadata do RAG
+    id_paciente = st.text_input("ID do Paciente", value="PAC-001")
+    tema_consulta = st.text_input("Tema (ex: diabetes, fumar)", value="Geral")
+    data_consulta = st.date_input("Data da Consulta")
+    
+    # 3. Botão para processar tudo
+    if st.button("Carregar Consulta"):
+        if ficheiro_audio is not None:
+            with st.spinner("A processar áudio e a atualizar o cérebro da IA..."):
                 
-                # ==========================================
-                # O MOTOR RAG A FUNCIONAR
-                # ==========================================
-                # Vai buscar os 3 parágrafos dos PDFs mais parecidos com a pergunta
-                docs = vectorstore.similarity_search(pergunta_paciente, k=3)
-                conhecimento_cientifico = "\n".join([d.page_content for d in docs])
-
-                # O "Super Prompt" que junta as duas realidades
-                instrucoes_hibridas = f"""
-                És um Assistente Clínico empático em Portugal. Vais responder à pergunta do paciente cruzando DUAS fontes de informação:
+                # Criar a pasta audios se ela não existir
+                os.makedirs("./audios", exist_ok=True)
                 
-                FONTE 1 (O CASO DO PACIENTE - Transcrição):
-                {st.session_state.texto_consulta}
-
-                FONTE 2 (A CIÊNCIA - Manuais Médicos da DGS):
-                {conhecimento_cientifico}
-
-                REGRAS:
-                1. Responde sempre em Português de Portugal (PT-PT).
-                2. Sê empático e reconfortante.
-                3. Responde com base no CASO DO PACIENTE, mas usa a CIÊNCIA para justificar ou complementar a resposta de forma segura.
-                4. Nunca digas "A fonte 1 diz isto". Fala naturalmente.
-                """
-
-                # Montar o pacote de mensagens (Instruções + Pergunta)
-                mensagens_para_ia = [
-                    {"role": "system", "content": instrucoes_hibridas},
-                    {"role": "user", "content": pergunta_paciente}
-                ]
-
-                # Chamar o Ollama
-                resposta = ollama.chat(
-                    model='llama3:8b', 
-                    messages=mensagens_para_ia,
-                    options={'temperature': 0.1}
+                # Guardar o ficheiro que o utilizador enviou no disco do computador
+                caminho_audio_temp = f"./audios/{ficheiro_audio.name}"
+                with open(caminho_audio_temp, "wb") as f:
+                    f.write(ficheiro_audio.getbuffer())
+                
+                # ---- O TEU CÓDIGO RAG ENTRA AQUI ----
+                vs = inicializar_base_medica("./manuais_medicos")
+                
+                # Opcional: damos um nome ao ficheiro de texto baseado no nome do áudio
+                nome_txt = ficheiro_audio.name.replace(".", "_") + ".txt"
+                
+                # Transcreve o ficheiro que acabou de ser guardado!
+                texto_transcrito = transcricao(caminho_audio_temp, nome_txt)
+                
+                vs_atualizado = adicionar_nova_consulta_ao_rag(
+                    pasta_db="./chroma_db",
+                    texto_transcricao=texto_transcrito,
+                    nome_audio=ficheiro_audio.name,
+                    id_paciente=id_paciente,
+                    data_consulta=str(data_consulta), # O Streamlit usa o formato de data correto
+                    tema=tema_consulta
                 )
                 
-                texto_resposta = resposta['message']['content']
-                st.write(texto_resposta)
+                retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente=id_paciente)
+                
+                # Guardamos o agente na memória da página!
+                st.session_state.executor = criar_agente(retriever_do_paciente, vs_atualizado, id_paciente)
+                
+            st.success("✅ Base de dados e Agente prontos! Já pode falar.")
+        else:
+            st.error("⚠️ Por favor, faça o upload de um ficheiro de áudio antes de clicar no botão.")
+
+
+# ==========================================
+# 3. INTERFACE DE CHAT (O ECRÃ PRINCIPAL)
+# ==========================================
+# ... (o resto do teu código do chat fica exatamente igual) ...
+
+# ==========================================
+# 3. INTERFACE DE CHAT (O ECRÃ PRINCIPAL)
+# ==========================================
+
+# Mostra todas as mensagens anteriores no ecrã
+for msg in st.session_state.mensagens_ecra:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# A caixa de texto onde o utilizador escreve
+if pergunta := st.chat_input("Escreva aqui a sua dúvida..."):
+    
+    # 1. Mostra a pergunta do utilizador no ecrã
+    st.session_state.mensagens_ecra.append({"role": "user", "content": pergunta})
+    with st.chat_message("user"):
+        st.markdown(pergunta)
+
+    # 2. O NOSSO "ESCUDO" DE PYTHON PARA SAUDAÇÕES
+    saudacoes_basicas = ['ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'oi']
+    if pergunta.lower().strip() in saudacoes_basicas:
+        resposta = "Olá! Como te posso ajudar com as dúvidas sobre a tua consulta hoje?"
         
-        # Guardar conversa
-        st.session_state.historico_chat.append({"role": "user", "content": pergunta_paciente})
-        st.session_state.historico_chat.append({"role": "assistant", "content": texto_resposta})
+        # Mostra a resposta e guarda no histórico
+        with st.chat_message("assistant"):
+            st.markdown(resposta)
+        st.session_state.mensagens_ecra.append({"role": "assistant", "content": resposta})
+        st.session_state.historico_ia.extend([HumanMessage(content=pergunta), AIMessage(content=resposta)])
+
+    # 3. SE NÃO FOR UMA SAUDAÇÃO, CHAMA O AGENTE (A IA)
+    else:
+        if st.session_state.executor is None:
+            st.error("⚠️ Por favor, carrega a consulta na barra lateral primeiro!")
+        else:
+            with st.chat_message("assistant"):
+                # O spinner mostra aquela animação de "A pensar..."
+                with st.spinner("A consultar os manuais e a transcrição..."):
+                    
+                    # Pede a resposta ao agente
+                    resposta_agente = st.session_state.executor.invoke({
+                        "input": pergunta,
+                        "chat_history": st.session_state.historico_ia
+                    })
+                    
+                    texto_da_resposta = resposta_agente["output"]
+                    st.markdown(texto_da_resposta)
+            
+            # Guarda na memória do ecrã e na memória da IA
+            st.session_state.mensagens_ecra.append({"role": "assistant", "content": texto_da_resposta})
+            st.session_state.historico_ia.extend([
+                HumanMessage(content=pergunta),
+                AIMessage(content=texto_da_resposta)
+            ])
