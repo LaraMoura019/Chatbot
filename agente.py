@@ -107,8 +107,6 @@ def criar_agente(retriever, vector_store, id_paciente):
         RULE 4: Maintain a welcoming tone and never try to replace the human doctor. Respond in European Portuguese.
         RULE 5: Do not apologize every time you start a sentence, only when you make a mistake!
         RULE 6: Never mention that you are accessing the appointment transcription or using tools. 
-        
-        # --- NOVAS REGRAS PARA CONVERSA E EMPATIA ---
         RULE 7: GREETINGS AND SMALL TALK: If the user input is just a greeting like "Olá", "Bom dia", "Tudo bem", or a thank you, YOU MUST NOT CALL ANY TOOLS. Reply strictly from your own knowledge with a short, warm, and welcoming greeting in European Portuguese. Wait for the user to ask a specific question before using tools.
         RULE 8: EMOTIONAL SUPPORT: If the user is anxious, scared, nervous, or sad, DO NOT immediately search for medical facts. First, validate their feelings with deep empathy and reassure them. Use a comforting, calm, and supportive tone. Only use tools if they also ask a factual question alongside their emotional concern.
         RULE 9: When answering questions about treatments, next steps, or lifestyle, ALWAYS check what the doctor specifically recommended in the appointment FIRST. Only use the medical manuals to complement or explain what the doctor said."""),
@@ -118,10 +116,8 @@ def criar_agente(retriever, vector_store, id_paciente):
         ("placeholder", "{agent_scratchpad}"), 
     ])
     
-    # Create the agent by combining the LLM, tools, and prompt
     agente = create_tool_calling_agent(llm, ferramentas, prompt)
     
-    # The Executor puts the agent to work and handles errors
     executor = AgentExecutor(
         agent=agente,
         tools=ferramentas,

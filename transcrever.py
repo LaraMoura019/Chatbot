@@ -20,8 +20,8 @@ def transcricao(ficheiro_audio, ficheiro_txt, language="en"):
         raise FileNotFoundError(f"Ficheiro de áudio não encontrado: {ficheiro_audio}")
     
     modelo_tamanho = "large-v3"
-    #model = WhisperModel(modelo_tamanho, device="cpu", compute_type="int8")
-    model = WhisperModel(modelo_tamanho, device="cuda", compute_type="float16")
+    model = WhisperModel(modelo_tamanho, device="cpu", compute_type="int8")
+    #model = WhisperModel(modelo_tamanho, device="cuda", compute_type="float16")
 
     print("Transcrição iniciada")
     # Fazer a transcrição
