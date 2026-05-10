@@ -75,10 +75,6 @@ def dividir_em_chunks(documentos):
     print(f"{len(documentos)} documentos → {len(chunks)} chunks")
     return chunks
 
-# ====================================
-# FUNÇÕES DE GESTÃO DA BASE DE DADOS 
-# ====================================
-
 def inicializar_base_medica(pasta_pdfs, pasta_db="./chroma_db", modelo_embeddings="nomic-embed-text"):
     """
     PASSO 1: Roda APENAS na primeira vez (ou quando adicionar PDFs novos).
@@ -151,33 +147,4 @@ def criar_retriever(vector_store, id_paciente=None, k=5):
         }
     )
     
-    return retriever # <-- Faltava isto no seu código!
-
-
-# =====================================================================
-# EXEMPLO DE COMO USAR ISTO NO DIA A DIA
-# =====================================================================
-
-#if __name__ == "__main__":
-#    # 1. Carrega os manuais (Rápido se já foi feito antes)
-#    vs = inicializar_base_medica("./manuais_medicos")
-#    
-#    if vs:
-#        # 2. Faz de conta que tivemos uma consulta hoje
-#        texto_da_consulta_de_hoje = "O paciente relata tonturas ao tomar a metformina. Glicemia em jejum a 110."
-#        
-#        # Guardamos a consulta no banco de dados (fica para sempre!)
-#        adicionar_nova_consulta_ao_rag(
-#            pasta_db="./chroma_db",
-#            texto_transcricao=texto_da_consulta_de_hoje,
-#            nome_audio="audio_01_maio.mp3",
-#            id_paciente="PAC-001",
-#            data_consulta="2026-05-01",
-#            tema="diabetes"
-#        )
-#        
-#        # 3. Quando for fazer perguntas ao LLM, cria o retriever com o ID do paciente
-#        # Assim o LLM não confunde o PAC-001 com as consultas de outro paciente!
-#        retriever_paciente_1 = criar_retriever(vs, id_paciente="PAC-001")
-#        
-#        print("\nTudo pronto! O sistema já pode cruzar os PDFs com o histórico do PAC-001.")
+    return retriever

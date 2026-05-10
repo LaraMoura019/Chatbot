@@ -10,15 +10,9 @@ _vector_store = None
 _id_paciente = None
 
 def formatar_contexto(docs):
-    """
-    Takes the chunks of text found by the retriever and joins them 
-    into a single, clean text separated by paragraphs for easier reading.
-    """
     textos = []
     for doc in docs:
         textos.append(doc.page_content)
-    
-    # Join all texts with double line breaks between them
     return "\n\n".join(textos)
 
 
@@ -90,13 +84,11 @@ def inicializar_ferramentas(retriever, vector_store, id_paciente):
 
 
 def criar_agente(retriever, vector_store, id_paciente):
-    # Agora passamos os 3 argumentos para as ferramentas
     ferramentas = inicializar_ferramentas(retriever, vector_store, id_paciente)
     
-    # Initialize the LLM (the brain)
+    # Initialize the LLM 
     llm = ChatOllama(model="llama3.1:8b", temperature=0) 
     
-    # The Prompt defines the personality and strict rules of our bot
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a generalist virtual medical assistant in Portugal.
         Your job is to help patients understand the medical appointment they just had, regardless of the specialty.
@@ -127,17 +119,11 @@ def criar_agente(retriever, vector_store, id_paciente):
     
     return executor
 
-
-# ─────────────────────────────────────────────
-# 4. CHAT LOOP
-# ─────────────────────────────────────────────
 def iniciar_chat(executor):
     print("\nOlá! Sou o teu Assistente de Saúde. Como te posso ajudar hoje?")
     print("(Escreve 'sair' para terminar a conversa)\n")
     
     historico_conversa = []
-    
-    # Palavras que queremos intercetar antes de ir para a IA
     saudacoes_basicas = ['ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'oi']
     
     while True:
@@ -146,13 +132,9 @@ def iniciar_chat(executor):
         if pergunta.lower().strip() == 'sair':
             print("As melhoras! Até à próxima.")
             break
-            
-        # --- O NOSSO ESCUDO DE PYTHON ---
         if pergunta.lower().strip() in saudacoes_basicas:
             resposta_rapida = "Olá! Como te posso ajudar com as dúvidas sobre a tua consulta hoje?"
             print(f"\nAssistente: {resposta_rapida}\n")
-            
-            # Guardamos na memória para a IA saber que já dissemos olá
             historico_conversa.extend([
                 HumanMessage(content=pergunta),
                 AIMessage(content=resposta_rapida)
@@ -160,7 +142,6 @@ def iniciar_chat(executor):
             continue # Volta para o início do loop sem chamar o LLM!
             
         try:
-            # Send the question AND the memory to the Agent
             resposta = executor.invoke({
                 "input": pergunta,
                 "chat_history": historico_conversa
@@ -169,7 +150,6 @@ def iniciar_chat(executor):
             texto_da_resposta = resposta["output"]
             print(f"\nAssistente: {texto_da_resposta}\n")
             
-            # Save this interaction to the memory
             historico_conversa.extend([
                 HumanMessage(content=pergunta),
                 AIMessage(content=texto_da_resposta)
@@ -178,33 +158,30 @@ def iniciar_chat(executor):
         except Exception as e:
             print(f"Ups, houve um erro: {e}")
 
-# ─────────────────────────────────────────────
-# HOW TO RUN THE FULL PIPELINE:
-# ─────────────────────────────────────────────
-if __name__ == "__main__":
-    from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
-    from transcrever import transcricao
-
-    # 1. Load the medical manuals DB (fast if it already exists)
-    vs = inicializar_base_medica("./manuais_medicos")
-
-    if vs:
-        # 2. Transcribe the audio
-        texto_transcrito = transcricao("./audios/Smoking.mp3", "smoking.txt")
-        
-        # 3. Add the appointment to the database, tagged to a specific Patient and Date
-        vs_atualizado = adicionar_nova_consulta_ao_rag(
-            pasta_db="./chroma_db",
-            texto_transcricao=texto_transcrito,
-            nome_audio="smoling.mp3",
-            id_paciente="PAC-002",
-            data_consulta="2026-05-01",
-            tema="smoking"
-        )
-        
-        # 4. Create the retriever SPECIFICALLY for PAC-001
-        retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente="PAC-002")
-        
-        # 5. Build the agent and start the chat (Passing all 3 arguments!)
-        executor = criar_agente(retriever_do_paciente, vs_atualizado, "PAC-002")
-        iniciar_chat(executor)
+#if __name__ == "__main__":
+#    from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
+#    from transcrever import transcricao
+#
+#    # Load the medical manuals DB
+#    vs = inicializar_base_medica("./manuais_medicos")
+#
+#    if vs:
+#        # Transcribe the audio
+#        texto_transcrito = transcricao("./audios/Smoking.mp3", "smoking.txt")
+#        
+#        # 3. Add the appointment to the database, tagged to a specific Patient and Date
+#        vs_atualizado = adicionar_nova_consulta_ao_rag(
+#            pasta_db="./chroma_db",
+#            texto_transcricao=texto_transcrito,
+#            nome_audio="smoling.mp3",
+#            id_paciente="PAC-002",
+#            data_consulta="2026-05-01",
+#            tema="smoking"
+#        )
+#        
+#        # Create the retriever SPECIFICALLY for PAC-001
+#        retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente="PAC-002")
+#        
+#        # Build the agent and start the chat 
+#        executor = criar_agente(retriever_do_paciente, vs_atualizado, "PAC-002")
+#        iniciar_chat(executor)
