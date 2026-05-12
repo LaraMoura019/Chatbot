@@ -276,12 +276,11 @@ with st.sidebar:
                     tema=tema_consulta
                 )
 
-                retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente=id_paciente)
-                st.session_state.executor = criar_agente(retriever_do_paciente, vs_atualizado, id_paciente)
+                retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente=id_paciente, tema_consulta=tema_consulta)
+                st.session_state.executor = criar_agente(retriever_do_paciente, vs_atualizado, id_paciente, tema_consulta)
 
                 # Reinicia o chat para a nova consulta
                 st.session_state.historico_ia = []
-                # ... (o teu código de criar o retriever e o agente fica igual) ...
 
                 nome_da_sessao = f"{tema_consulta} - {data_consulta}"
                 
