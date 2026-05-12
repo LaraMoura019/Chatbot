@@ -349,7 +349,7 @@ for msg in st.session_state.mensagens_ecra:
 
 # Reproduz o último áudio da Clara automaticamente
 if st.session_state.resposta_audio:
-    st.audio(st.session_state.resposta_audio, format="audio/wav", autoplay=True)
+    st.audio(st.session_state.resposta_audio, format="audio/mp3", autoplay=True)
 
 
 # ── Função central: processa qualquer pergunta (texto ou voz) ──

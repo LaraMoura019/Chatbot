@@ -1,5 +1,6 @@
 from faster_whisper import WhisperModel
-from TTS.api import TTS
+import edge_tts
+import asyncio
 import tempfile
 import os
 import torch
@@ -40,32 +41,23 @@ def transcrever_pergunta(audio_bytes: bytes) -> str:
     return texto
 
 
-# ── Coqui TTS ──
-_tts_model = None
+# ── Edge TTS ──
+# Voz feminina PT-PT da Microsoft — boa qualidade, não requer GPU
+VOZ_PT = "pt-PT-RaquelNeural"
 
-def obter_modelo_tts():
-    global _tts_model
-    if _tts_model is None:
-        # Modelo multilingue com boa qualidade em PT
-        _tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
-    return _tts_model
+async def _sintetizar_async(texto: str, caminho: str):
+    comunicador = edge_tts.Communicate(texto, VOZ_PT)
+    await comunicador.save(caminho)
 
 def sintetizar_resposta(texto: str) -> bytes:
     """
-    Converte texto em áudio WAV e devolve os bytes prontos para st.audio().
+    Converte texto em áudio MP3 via Edge TTS e devolve os bytes prontos para st.audio().
     """
-    tts = obter_modelo_tts()
-
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
         tmp_path = tmp.name
 
     try:
-        tts.tts_to_file(
-            text=texto,
-            file_path=tmp_path,
-            language="pt",
-            speaker="Ana Florence",  # voz feminina PT disponível no XTTS v2
-        )
+        asyncio.run(_sintetizar_async(texto, tmp_path))
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
     finally:
