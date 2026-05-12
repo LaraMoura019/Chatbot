@@ -3,7 +3,7 @@ import edge_tts
 import asyncio
 import tempfile
 import os
-import torch
+
 
 # ── Whisper (reutiliza o mesmo modelo da transcrição de consultas) ──
 _whisper_model = None
@@ -11,8 +11,8 @@ _whisper_model = None
 def obter_modelo_whisper():
     global _whisper_model
     if _whisper_model is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        compute = "float16" if device == "cuda" else "int8"
+        device = "cuda" 
+        compute = "float16"
         _whisper_model = WhisperModel("large-v3", device=device, compute_type=compute)
     return _whisper_model
 
