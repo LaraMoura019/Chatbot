@@ -87,7 +87,7 @@ def criar_agente(retriever, vector_store, id_paciente):
     ferramentas = inicializar_ferramentas(retriever, vector_store, id_paciente)
     
     # Initialize the LLM 
-    llm = ChatOllama(model="llama3.1:8b", temperature=0) 
+    llm = ChatOllama(model="clara", temperature=0) 
     prompt = ChatPromptTemplate.from_messages([
         ("system", f"""És a Clara, uma assistente de saúde virtual em Portugal. O teu papel é ajudar os pacientes a compreender a consulta médica que acabaram de ter, de forma clara e empática — como uma assistente, NUNCA como médica.
  
