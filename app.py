@@ -199,20 +199,17 @@ st.markdown("---")
 # ==================
 # GESTÃO DE MEMÓRIA 
 # ==================
+if "todas_as_consultas" not in st.session_state:
+    st.session_state.todas_as_consultas = {} # Dicionário para guardar vários chats
+
+if "consulta_atual" not in st.session_state:
+    st.session_state.consulta_atual = None
+
 if "historico_ia" not in st.session_state:
     st.session_state.historico_ia = []
 
 if "mensagens_ecra" not in st.session_state:
-    st.session_state.mensagens_ecra = [
-        {
-            "role": "assistant",
-            "content": (
-                "Olá! 👋 Sou a **Clara**, a sua assistente de saúde.\n"
-                "Estou aqui para o ajudar a esclarecer as dúvidas sobre a sua consulta.\n"
-                "Escreva a sua pergunta aqui em baixo, com calma, e eu respondo."
-            )
-        }
-    ]
+    st.session_state.mensagens_ecra = []
 
 if "executor" not in st.session_state:
     st.session_state.executor = None
@@ -222,6 +219,20 @@ if "executor" not in st.session_state:
 # BARRA LATERAL
 # ================
 with st.sidebar:
+    st.markdown("---")
+    st.markdown("## 🗂️ Consultas Anteriores")
+    
+    if not st.session_state.todas_as_consultas:
+        st.info("Ainda não tem consultas guardadas.")
+    else:
+        # Cria um botão para cada consulta guardada
+        for nome_sessao in st.session_state.todas_as_consultas.keys():
+            if st.button(f"💬 {nome_sessao}", use_container_width=True):
+                # Quando o utilizador clica, carregamos essa consulta para o ecrã
+                st.session_state.consulta_atual = nome_sessao
+                st.session_state.executor = st.session_state.todas_as_consultas[nome_sessao]["executor"]
+                st.session_state.historico_ia = st.session_state.todas_as_consultas[nome_sessao]["historico_ia"]
+                st.session_state.mensagens_ecra = st.session_state.todas_as_consultas[nome_sessao]["mensagens_ecra"]
     st.markdown("## Carregar Consulta")
     st.info(
         "Esta área é para um familiar ou cuidador.\n"
@@ -270,16 +281,30 @@ with st.sidebar:
 
                 # Reinicia o chat para a nova consulta
                 st.session_state.historico_ia = []
-                st.session_state.mensagens_ecra = [
-                    {
-                        "role": "assistant",
-                        "content": (
-                            f"Olá, {id_paciente}! 👋 A sua consulta foi carregada com sucesso.\n"
-                            "Estou aqui para o ajudar a esclarecer qualquer dúvida sobre o que foi discutido.\n"
-                            "Escreva a sua pergunta aqui em baixo, com calma, e eu respondo."
-                        )
-                    }
-                ]
+                # ... (o teu código de criar o retriever e o agente fica igual) ...
+
+                nome_da_sessao = f"{tema_consulta} - {data_consulta}"
+                
+                # Guarda o agente, o histórico da IA e as mensagens do ecrã no "arquivo"
+                st.session_state.todas_as_consultas[nome_da_sessao] = {
+                    "executor": st.session_state.executor,
+                    "historico_ia": [],
+                    "mensagens_ecra": [
+                        {
+                            "role": "assistant",
+                            "content": (
+                                f"Olá, {id_paciente}! 👋 A sua consulta de {tema_consulta} foi carregada.\n"
+                                "Estou aqui para o ajudar a esclarecer qualquer dúvida sobre o que foi discutido."
+                            )
+                        }
+                    ]
+                }
+                
+                # Define esta nova consulta como a consulta ativa no ecrã
+                st.session_state.consulta_atual = nome_da_sessao
+                st.session_state.executor = st.session_state.todas_as_consultas[nome_da_sessao]["executor"]
+                st.session_state.historico_ia = st.session_state.todas_as_consultas[nome_da_sessao]["historico_ia"]
+                st.session_state.mensagens_ecra = st.session_state.todas_as_consultas[nome_da_sessao]["mensagens_ecra"]
 
             st.success("Consulta carregada! Já pode conversar com a Clara.")
             
