@@ -1,9 +1,11 @@
 import os
+import hashlib
 import streamlit as st
 from langchain_core.messages import HumanMessage, AIMessage
 from agente import criar_agente
 from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
 from transcrever import transcricao
+from voz import transcrever_pergunta, sintetizar_resposta
 
 st.set_page_config(
     page_title="Clara – Assistente de Saúde",
@@ -15,15 +17,11 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
 
-/* ── Fundo ── */
 html, body, [data-testid="stAppViewContainer"] {
     background: linear-gradient(160deg, #f4f1ec 0%, #eef3f8 60%, #f0ece4 100%) !important;
     font-family: 'Nunito', sans-serif;
 }
-
 [data-testid="stHeader"] { background: transparent !important; }
-
-/* ── Título ── */
 h1 {
     font-family: 'Lora', serif !important;
     font-size: 2.4rem !important;
@@ -31,7 +29,6 @@ h1 {
     letter-spacing: -0.3px;
     margin-bottom: 0 !important;
 }
-
 .subtitle {
     font-family: 'Nunito', sans-serif;
     font-size: 1.05rem;
@@ -39,22 +36,17 @@ h1 {
     margin-top: 4px;
     margin-bottom: 14px;
 }
-
 hr {
     border: none !important;
     border-top: 2px solid #d8e4ee !important;
     margin: 8px 0 20px 0 !important;
 }
-
-/* ── Texto dos balões — LETRA GRANDE para seniores ── */
 [data-testid="stChatMessageContent"] p {
     font-family: 'Nunito', sans-serif !important;
     font-size: 1.08rem !important;
     line-height: 1.8 !important;
     color: #1e2d3d !important;
 }
-
-/* Balão do utilizador — azul acinzentado */
 [data-testid="stChatMessage"][data-author="user"] [data-testid="stChatMessageContent"] {
     background: #ddeaf5 !important;
     border-radius: 20px 20px 6px 20px !important;
@@ -62,8 +54,6 @@ hr {
     box-shadow: 0 2px 8px rgba(45,74,107,0.10);
     border: 1.5px solid #bdd1e6;
 }
-
-/* Balão da Clara — creme quente */
 [data-testid="stChatMessage"][data-author="assistant"] [data-testid="stChatMessageContent"] {
     background: #fdf7ee !important;
     border-radius: 20px 20px 20px 6px !important;
@@ -71,8 +61,6 @@ hr {
     box-shadow: 0 2px 8px rgba(180,150,100,0.10);
     border: 1.5px solid #e8d9bf;
 }
-
-/* ── Área inferior do chat (fundo igual ao resto) ── */
 [data-testid="stBottomBlockContainer"],
 [data-testid="stBottomBlockContainer"] > div,
 [data-testid="stBottomBlockContainer"] > div > div,
@@ -82,12 +70,10 @@ section[data-testid="stChatInput"],
 .stChatFloatingInputContainer > div,
 .stChatInputContainer {
     background: #f4f1ec !important;
-    background-color: #E8F0F7!important;
+    background-color: #E8F0F7 !important;
     box-shadow: none !important;
     border-top: none !important;
 }
-
-/* ── Caixa de input — grande e confortável ── */
 [data-testid="stChatInput"] textarea {
     font-family: 'Nunito', sans-serif !important;
     font-size: 1.05rem !important;
@@ -98,30 +84,24 @@ section[data-testid="stChatInput"],
     padding: 14px 22px !important;
     box-shadow: 0 2px 10px rgba(45,74,107,0.08) !important;
 }
-
 [data-testid="stChatInput"] textarea:focus {
     border-color: #7aa5c8 !important;
     box-shadow: 0 0 0 3px rgba(122,165,200,0.18) !important;
 }
-
 [data-testid="stChatInput"] textarea::placeholder {
     color: #9aafbf !important;
     font-size: 1rem !important;
 }
-
-/* ── Sidebar ── */
 [data-testid="stSidebar"] {
     background: #e8f0f7 !important;
     border-right: 2px solid #ccdde8 !important;
 }
-
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3 {
     font-family: 'Lora', serif !important;
     color: #2d4a6b !important;
     font-size: 1.25rem !important;
 }
-
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] p {
     color: #3a4f5e !important;
@@ -129,8 +109,6 @@ section[data-testid="stChatInput"],
     font-size: 1rem !important;
     font-weight: 600 !important;
 }
-
-/* Info box */
 [data-testid="stSidebar"] [data-testid="stAlert"] {
     background: #e8f4fd !important;
     border: 1.5px solid #b5d3ea !important;
@@ -138,8 +116,6 @@ section[data-testid="stChatInput"],
     color: #2d4a6b !important;
     font-size: 0.97rem !important;
 }
-
-/* Inputs sidebar */
 [data-testid="stSidebar"] input {
     border-radius: 10px !important;
     border: 2px solid #bdd1e6 !important;
@@ -149,16 +125,12 @@ section[data-testid="stChatInput"],
     font-size: 1rem !important;
     padding: 8px 12px !important;
 }
-
-/* File uploader */
 [data-testid="stFileUploader"] {
     border: 2.5px dashed #7aa5c8 !important;
     border-radius: 14px !important;
     background: #f0f7fd !important;
     padding: 10px !important;
 }
-
-/* Botão — grande, alto contraste, fácil de carregar */
 [data-testid="stSidebar"] button {
     background: #a8c8e8 !important;
     color: #000000 !important;
@@ -173,14 +145,19 @@ section[data-testid="stChatInput"],
     box-shadow: 0 3px 10px rgba(100,150,200,0.20) !important;
     width: 100% !important;
 }
-
 [data-testid="stSidebar"] button:hover {
     background: #8fb8de !important;
     transform: translateY(-2px) !important;
     box-shadow: 0 5px 16px rgba(100,150,200,0.30) !important;
 }
-
-/* Ocultar menu e rodapé do Streamlit */
+.voz-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #2d4a6b;
+    margin-bottom: 6px;
+    display: block;
+}
 #MainMenu, footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
@@ -196,11 +173,12 @@ st.markdown(
 )
 st.markdown("---")
 
+
 # ==================
-# GESTÃO DE MEMÓRIA 
+# GESTÃO DE MEMÓRIA
 # ==================
 if "todas_as_consultas" not in st.session_state:
-    st.session_state.todas_as_consultas = {} # Dicionário para guardar vários chats
+    st.session_state.todas_as_consultas = {}
 
 if "consulta_atual" not in st.session_state:
     st.session_state.consulta_atual = None
@@ -209,30 +187,46 @@ if "historico_ia" not in st.session_state:
     st.session_state.historico_ia = []
 
 if "mensagens_ecra" not in st.session_state:
-    st.session_state.mensagens_ecra = []
+    st.session_state.mensagens_ecra = [
+        {
+            "role": "assistant",
+            "content": (
+                "Olá! 👋 Sou a **Clara**, a sua assistente de saúde.\n"
+                "Estou aqui para o ajudar a esclarecer as dúvidas sobre a sua consulta.\n"
+                "Pode escrever a sua pergunta ou usar o microfone 🎤 aqui em baixo."
+            )
+        }
+    ]
 
 if "executor" not in st.session_state:
     st.session_state.executor = None
+
+if "resposta_audio" not in st.session_state:
+    st.session_state.resposta_audio = None
+
+if "ultimo_audio_hash" not in st.session_state:
+    st.session_state.ultimo_audio_hash = None
 
 
 # ================
 # BARRA LATERAL
 # ================
 with st.sidebar:
-    st.markdown("---")
     st.markdown("## 🗂️ Consultas Anteriores")
-    
+
     if not st.session_state.todas_as_consultas:
         st.info("Ainda não tem consultas guardadas.")
     else:
-        # Cria um botão para cada consulta guardada
         for nome_sessao in st.session_state.todas_as_consultas.keys():
             if st.button(f"💬 {nome_sessao}", use_container_width=True):
-                # Quando o utilizador clica, carregamos essa consulta para o ecrã
                 st.session_state.consulta_atual = nome_sessao
-                st.session_state.executor = st.session_state.todas_as_consultas[nome_sessao]["executor"]
-                st.session_state.historico_ia = st.session_state.todas_as_consultas[nome_sessao]["historico_ia"]
+                st.session_state.executor      = st.session_state.todas_as_consultas[nome_sessao]["executor"]
+                st.session_state.historico_ia  = st.session_state.todas_as_consultas[nome_sessao]["historico_ia"]
                 st.session_state.mensagens_ecra = st.session_state.todas_as_consultas[nome_sessao]["mensagens_ecra"]
+                st.session_state.resposta_audio = None
+                st.rerun()
+
+    st.markdown("---")
     st.markdown("## Carregar Consulta")
     st.info(
         "Esta área é para um familiar ou cuidador.\n"
@@ -277,36 +271,35 @@ with st.sidebar:
                 )
 
                 retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente=id_paciente, tema_consulta=tema_consulta)
-                st.session_state.executor = criar_agente(retriever_do_paciente, vs_atualizado, id_paciente, tema_consulta)
-
-                # Reinicia o chat para a nova consulta
-                st.session_state.historico_ia = []
+                executor = criar_agente(retriever_do_paciente, vs_atualizado, id_paciente, tema_consulta)
 
                 nome_da_sessao = f"{tema_consulta} - {data_consulta}"
-                
-                # Guarda o agente, o histórico da IA e as mensagens do ecrã no "arquivo"
+                mensagens_iniciais = [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            f"Olá, {id_paciente}! 👋 A sua consulta de {tema_consulta} foi carregada.\n"
+                            "Estou aqui para o ajudar a esclarecer qualquer dúvida sobre o que foi discutido.\n"
+                            "Pode escrever a sua pergunta ou usar o microfone 🎤 aqui em baixo."
+                        )
+                    }
+                ]
+
                 st.session_state.todas_as_consultas[nome_da_sessao] = {
-                    "executor": st.session_state.executor,
+                    "executor": executor,
                     "historico_ia": [],
-                    "mensagens_ecra": [
-                        {
-                            "role": "assistant",
-                            "content": (
-                                f"Olá, {id_paciente}! 👋 A sua consulta de {tema_consulta} foi carregada.\n"
-                                "Estou aqui para o ajudar a esclarecer qualquer dúvida sobre o que foi discutido."
-                            )
-                        }
-                    ]
+                    "mensagens_ecra": mensagens_iniciais
                 }
-                
-                # Define esta nova consulta como a consulta ativa no ecrã
-                st.session_state.consulta_atual = nome_da_sessao
-                st.session_state.executor = st.session_state.todas_as_consultas[nome_da_sessao]["executor"]
-                st.session_state.historico_ia = st.session_state.todas_as_consultas[nome_da_sessao]["historico_ia"]
-                st.session_state.mensagens_ecra = st.session_state.todas_as_consultas[nome_da_sessao]["mensagens_ecra"]
+
+                # Ativa a nova consulta no ecrã
+                st.session_state.consulta_atual  = nome_da_sessao
+                st.session_state.executor        = executor
+                st.session_state.historico_ia    = []
+                st.session_state.mensagens_ecra  = mensagens_iniciais
+                st.session_state.resposta_audio  = None
+                st.session_state.ultimo_audio_hash = None
 
             st.success("Consulta carregada! Já pode conversar com a Clara.")
-            
         else:
             st.warning("Por favor, adicione um ficheiro de áudio no Passo 1.")
 
@@ -333,7 +326,6 @@ with st.sidebar:
                 el.style.backgroundColor = '#f4f1ec';
                 el.style.boxShadow = 'none';
                 el.style.borderTop = 'none';
-                // Apanha também todos os filhos diretos
                 Array.from(el.children).forEach(child => {
                     child.style.background = '#f4f1ec';
                     child.style.backgroundColor = '#f4f1ec';
@@ -341,7 +333,6 @@ with st.sidebar:
             });
         });
     }
-    // Corre ao carregar e de 500 em 500ms para apanhar elementos carregados depois
     fixInputBackground();
     setInterval(fixInputBackground, 500);
     </script>
@@ -356,8 +347,13 @@ for msg in st.session_state.mensagens_ecra:
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
-if pergunta := st.chat_input("Escreva aqui a sua pergunta e prima Enter…"):
+# Reproduz o último áudio da Clara automaticamente
+if st.session_state.resposta_audio:
+    st.audio(st.session_state.resposta_audio, format="audio/wav", autoplay=True)
 
+
+# ── Função central: processa qualquer pergunta (texto ou voz) ──
+def processar_pergunta(pergunta: str):
     st.session_state.mensagens_ecra.append({"role": "user", "content": pergunta})
     with st.chat_message("user", avatar="🧑"):
         st.markdown(pergunta)
@@ -370,6 +366,8 @@ if pergunta := st.chat_input("Escreva aqui a sua pergunta e prima Enter…"):
             st.markdown(resposta)
         st.session_state.mensagens_ecra.append({"role": "assistant", "content": resposta})
         st.session_state.historico_ia.extend([HumanMessage(content=pergunta), AIMessage(content=resposta)])
+        with st.spinner("A preparar a resposta em voz…"):
+            st.session_state.resposta_audio = sintetizar_resposta(resposta)
 
     else:
         if st.session_state.executor is None:
@@ -377,18 +375,48 @@ if pergunta := st.chat_input("Escreva aqui a sua pergunta e prima Enter…"):
                 "Ainda não há nenhuma consulta carregada.\n"
                 "Peça a um familiar ou cuidador que carregue a consulta na barra lateral, do lado esquerdo."
             )
-        else:
-            with st.chat_message("assistant", avatar="🩺"):
-                with st.spinner("A Clara está a consultar os seus documentos…"):
-                    resposta_agente = st.session_state.executor.invoke({
-                        "input": pergunta,
-                        "chat_history": st.session_state.historico_ia
-                    })
-                    texto_da_resposta = resposta_agente["output"]
-                    st.markdown(texto_da_resposta)
+            return
 
-            st.session_state.mensagens_ecra.append({"role": "assistant", "content": texto_da_resposta})
-            st.session_state.historico_ia.extend([
-                HumanMessage(content=pergunta),
-                AIMessage(content=texto_da_resposta)
-            ])
+        with st.chat_message("assistant", avatar="🩺"):
+            with st.spinner("A Clara está a consultar os seus documentos…"):
+                resposta_agente = st.session_state.executor.invoke({
+                    "input": pergunta,
+                    "chat_history": st.session_state.historico_ia
+                })
+                texto_da_resposta = resposta_agente["output"]
+                st.markdown(texto_da_resposta)
+
+            with st.spinner("A preparar a resposta em voz…"):
+                st.session_state.resposta_audio = sintetizar_resposta(texto_da_resposta)
+
+        st.session_state.mensagens_ecra.append({"role": "assistant", "content": texto_da_resposta})
+        st.session_state.historico_ia.extend([
+            HumanMessage(content=pergunta),
+            AIMessage(content=texto_da_resposta)
+        ])
+
+    # Sincroniza o histórico no arquivo de consultas
+    if st.session_state.consulta_atual:
+        st.session_state.todas_as_consultas[st.session_state.consulta_atual]["historico_ia"]   = st.session_state.historico_ia
+        st.session_state.todas_as_consultas[st.session_state.consulta_atual]["mensagens_ecra"] = st.session_state.mensagens_ecra
+
+    st.rerun()
+
+
+# ── Entrada por VOZ ──
+st.markdown('<span class="voz-label">🎤 Prefere falar? Grave a sua pergunta aqui:</span>', unsafe_allow_html=True)
+audio_gravado = st.audio_input("Gravar pergunta por voz", label_visibility="collapsed")
+
+if audio_gravado is not None:
+    audio_bytes = audio_gravado.read()
+    audio_hash  = hashlib.md5(audio_bytes).hexdigest()
+    if st.session_state.ultimo_audio_hash != audio_hash:
+        st.session_state.ultimo_audio_hash = audio_hash
+        with st.spinner("A transcrever a sua pergunta…"):
+            pergunta_voz = transcrever_pergunta(audio_bytes)
+        if pergunta_voz:
+            processar_pergunta(pergunta_voz)
+
+# ── Entrada por TEXTO ──
+if pergunta_texto := st.chat_input("Ou escreva aqui a sua pergunta…"):
+    processar_pergunta(pergunta_texto)

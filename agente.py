@@ -163,30 +163,3 @@ def iniciar_chat(executor):
         except Exception as e:
             print(f"Ups, houve um erro: {e}")
 
-#if __name__ == "__main__":
-#    from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
-#    from transcrever import transcricao
-#
-#    # Load the medical manuals DB
-#    vs = inicializar_base_medica("./manuais_medicos")
-#
-#    if vs:
-#        # Transcribe the audio
-#        texto_transcrito = transcricao("./audios/Smoking.mp3", "smoking.txt")
-#        
-#        # 3. Add the appointment to the database, tagged to a specific Patient and Date
-#        vs_atualizado = adicionar_nova_consulta_ao_rag(
-#            pasta_db="./chroma_db",
-#            texto_transcricao=texto_transcrito,
-#            nome_audio="smoling.mp3",
-#            id_paciente="PAC-002",
-#            data_consulta="2026-05-01",
-#            tema="smoking"
-#        )
-#        
-#        # Create the retriever SPECIFICALLY for PAC-001
-#        retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente="PAC-002")
-#        
-#        # Build the agent and start the chat 
-#        executor = criar_agente(retriever_do_paciente, vs_atualizado, "PAC-002")
-#        iniciar_chat(executor)

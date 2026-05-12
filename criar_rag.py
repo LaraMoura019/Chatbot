@@ -141,14 +141,12 @@ def criar_retriever(vector_store, id_paciente=None, tema_consulta=None, k=5):
         }
     
     retriever = vector_store.as_retriever(
-        search_type="mmr",
+        search_type="mmr", #algoritmo que faz o equilibrio entre relevancia e diversidade
         search_kwargs={
             "k": k,
             "fetch_k": 20,
-            "lambda_mult": 0.7,
+            "lambda_mult": 0.7, #da 70% de relevancia do documento em relação a pergunta e 30% a diversidade
             "filter": filtros if filtros else None
         }
     )
-    
-    return retriever
     return retriever
