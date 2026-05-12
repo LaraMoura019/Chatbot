@@ -121,18 +121,21 @@ def adicionar_nova_consulta_ao_rag(pasta_db, texto_transcricao, nome_audio, id_p
     
     return vector_store
 
-def criar_retriever(vector_store, id_paciente=None, k=5):
+def criar_retriever(vector_store, id_paciente=None, tema_consulta=None, k=5):
     """
-    PASSO 3: O motor de busca.
-    Agora recebe o id_paciente como variável! Se passado, filtra só para ele.
+    Agora recebe o id_paciente e o tema_consulta! Isola a consulta exata.
     """
     filtros = {}
     
-    if id_paciente:
-        # Se pedirmos um paciente específico, traz o histórico dele OU manuais médicos
+    if id_paciente and tema_consulta:
+        # Traz APENAS a consulta específica deste tema, OU os manuais médicos
         filtros = {
             "$or": [
-                {"paciente_id": id_paciente},
+                {"$and": [
+                    {"paciente_id": id_paciente},
+                    {"tema": tema_consulta},
+                    {"tipo": "consulta_medica"}
+                ]},
                 {"tipo": "conhecimento_medico"}
             ]
         }
@@ -143,8 +146,9 @@ def criar_retriever(vector_store, id_paciente=None, k=5):
             "k": k,
             "fetch_k": 20,
             "lambda_mult": 0.7,
-            "filter": filtros if filtros else None # Aplica o filtro se existir
+            "filter": filtros if filtros else None
         }
     )
     
+    return retriever
     return retriever

@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 _retriever = None
 _vector_store = None
 _id_paciente = None
+_tema_consulta = None
 
 def formatar_contexto(docs):
     textos = []
@@ -16,11 +17,12 @@ def formatar_contexto(docs):
     return "\n\n".join(textos)
 
 
-def inicializar_ferramentas(retriever, vector_store, id_paciente):
+def inicializar_ferramentas(retriever, vector_store, id_paciente, tema_consulta):
     global _retriever, _vector_store, _id_paciente
     _retriever = retriever
     _vector_store = vector_store
     _id_paciente = id_paciente
+    _tema_consulta = tema_consulta
 
     @tool
     def explicar_diagnostico(pergunta: str) -> str:
@@ -74,7 +76,8 @@ def inicializar_ferramentas(retriever, vector_store, id_paciente):
             filter={
                 "$and": [
                     {"tipo": "consulta_medica"},
-                    {"paciente_id": _id_paciente}
+                    {"paciente_id": _id_paciente},
+                    {"tema": _tema_consulta}
                 ]
             }
         )
@@ -83,8 +86,8 @@ def inicializar_ferramentas(retriever, vector_store, id_paciente):
     return [explicar_diagnostico, pesquisar_tratamentos, conselhos_estilo_vida, proximos_passos_e_alertas, resumo_da_consulta]
 
 
-def criar_agente(retriever, vector_store, id_paciente):
-    ferramentas = inicializar_ferramentas(retriever, vector_store, id_paciente)
+def criar_agente(retriever, vector_store, id_paciente, tema_consulta):
+    ferramentas = inicializar_ferramentas(retriever, vector_store, id_paciente, tema_consulta)
     
     # Initialize the LLM 
     llm = ChatOllama(model="clara") 
