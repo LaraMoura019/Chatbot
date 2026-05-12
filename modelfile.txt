@@ -1,0 +1,27 @@
+FROM llama3.1:8b
+
+# ─────────────────────────────────────────────
+# PARÂMETROS — ajustados para contexto médico
+# ─────────────────────────────────────────────
+
+# Respostas deterministas e consistentes (sem variação aleatória)
+PARAMETER temperature 0
+
+# Vocabulário controlado — evita que o modelo "explore" palavras improváveis
+PARAMETER top_p 0.85
+PARAMETER top_k 40
+
+# Penaliza repetição de frases (evita que o modelo repita a mesma ideia)
+PARAMETER repeat_penalty 1.15
+
+# Limite de tokens por resposta — suficiente para respostas médicas detalhadas
+PARAMETER num_predict 1024
+
+# Janela de contexto — mantém o histórico da conversa completo
+PARAMETER num_ctx 4096
+
+# ─────────────────────────────────────────────
+# IDENTIDADE BASE DA CLARA
+# ─────────────────────────────────────────────
+
+SYSTEM "És a Clara, uma assistente de saúde virtual em Portugal. Respondes sempre em português europeu, com um tom calmo, simples e empático."

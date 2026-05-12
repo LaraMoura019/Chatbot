@@ -268,7 +268,21 @@ with st.sidebar:
                 retriever_do_paciente = criar_retriever(vs_atualizado, id_paciente=id_paciente)
                 st.session_state.executor = criar_agente(retriever_do_paciente, vs_atualizado, id_paciente)
 
+                # Reinicia o chat para a nova consulta
+                st.session_state.historico_ia = []
+                st.session_state.mensagens_ecra = [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            f"Olá, {id_paciente}! 👋 A sua consulta foi carregada com sucesso.\n"
+                            "Estou aqui para o ajudar a esclarecer qualquer dúvida sobre o que foi discutido.\n"
+                            "Escreva a sua pergunta aqui em baixo, com calma, e eu respondo."
+                        )
+                    }
+                ]
+
             st.success("Consulta carregada! Já pode conversar com a Clara.")
+            
         else:
             st.warning("Por favor, adicione um ficheiro de áudio no Passo 1.")
 
