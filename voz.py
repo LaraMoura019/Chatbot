@@ -1,12 +1,9 @@
 import os
 import tempfile
 import asyncio
+import threading
 import edge_tts
-import nest_asyncio
 from faster_whisper import WhisperModel
-
-# Evita o erro do asyncio no Streamlit
-nest_asyncio.apply()
 
 # ==========================================
 # 1. WHISPER (Speech-to-Text / Transcrição)
@@ -55,8 +52,12 @@ async def _sintetizar_async(texto: str, caminho: str):
     comunicador = edge_tts.Communicate(texto, VOZ_PT)
     await comunicador.save(caminho)
 
+def _correr_em_thread(texto: str, caminho: str):
+    """Executa o código assíncrono num loop completamente novo e isolado"""
+    asyncio.run(_sintetizar_async(texto, caminho))
+
 def sintetizar_resposta(texto: str) -> bytes:
-    """Converte texto em áudio MP3 via Edge TTS"""
+    """Converte texto em áudio MP3 via Edge TTS usando uma Thread separada"""
     if not texto or not texto.strip():
         return b""
 
@@ -64,21 +65,16 @@ def sintetizar_resposta(texto: str) -> bytes:
         tmp_path = tmp.name
 
     try:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop and loop.is_running():
-            loop.run_until_complete(_sintetizar_async(texto, tmp_path))
-        else:
-            asyncio.run(_sintetizar_async(texto, tmp_path))
+        # Iniciamos a geração de voz numa thread separada para não chocar com o Streamlit/uvloop
+        thread = threading.Thread(target=_correr_em_thread, args=(texto, tmp_path))
+        thread.start()
+        thread.join() # Espera que a voz termine de ser gerada
             
         with open(tmp_path, "rb") as f:
             audio_bytes = f.read()
             
     except Exception as e:
-        print(f"Erro na síntese de voz (verifique a ligação à internet): {e}")
+        print(f"Erro na síntese de voz: {e}")
         audio_bytes = b""
         
     finally:
