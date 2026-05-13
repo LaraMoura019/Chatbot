@@ -305,9 +305,10 @@ with st.sidebar:
                 st.session_state.historico_ia    = []
                 st.session_state.mensagens_ecra  = mensagens_iniciais
                 st.session_state.resposta_audio  = None
-                st.session_state.ultimo_audio_hash = None
+                
 
             st.success("Consulta carregada! Já pode conversar com a Clara.")
+            st.rerun()
         else:
             st.warning("Por favor, adicione um ficheiro de áudio no Passo 1.")
 
