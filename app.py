@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from agente import criar_agente
 from criar_rag import inicializar_base_medica, adicionar_nova_consulta_ao_rag, criar_retriever
 from transcrever import transcricao
-from voz import transcrever_pergunta, sintetizar_resposta
+from voz import transcrever_pergunta, sintetizar_resposta, obter_modelo_whisper
 
 st.set_page_config(
     page_title="Clara – Assistente de Saúde",
@@ -259,8 +259,16 @@ with st.sidebar:
 
                 vs = inicializar_base_medica("./manuais_medicos")
                 nome_txt = ficheiro_audio.name.replace(".", "_") + ".txt"
-                texto_transcrito = transcricao(caminho_audio_temp, nome_txt)
-
+                
+                # --- O QUE TEM DE MUDAR É ISTO AQUI: ---
+                modelo_memoria = obter_modelo_whisper() # 1. Vai buscar o modelo à memória
+                texto_transcrito = transcricao(
+                    ficheiro_audio=caminho_audio_temp, 
+                    ficheiro_txt=nome_txt,
+                    model=modelo_memoria,               # 2. Passa o modelo para a função
+                    language="pt"
+                )
+                # --------------------------------------
                 vs_atualizado = adicionar_nova_consulta_ao_rag(
                     pasta_db="./chroma_db",
                     texto_transcricao=texto_transcrito,
