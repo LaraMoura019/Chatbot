@@ -212,7 +212,7 @@ if "ultimo_audio_hash" not in st.session_state:
 # BARRA LATERAL
 # ================
 with st.sidebar:
-    st.markdown("## 🗂️ Consultas Anteriores")
+    st.markdown("## Consultas Anteriores")
 
     if not st.session_state.todas_as_consultas:
         st.info("Ainda não tem consultas guardadas.")
@@ -403,9 +403,19 @@ def processar_pergunta(pergunta: str):
     st.rerun()
 
 
-# ── Entrada por VOZ ──
-st.markdown('<span class="voz-label">🎤 Prefere falar? Grave a sua pergunta aqui:</span>', unsafe_allow_html=True)
-audio_gravado = st.audio_input("Gravar pergunta por voz", label_visibility="collapsed")
+# ── Entrada por VOZ e TEXTO ──
+st.markdown("""
+<style>
+[data-testid="stAudioInput"] {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+[data-testid="stAudioInput"] label { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
+
+audio_gravado = st.audio_input("🎤", label_visibility="collapsed")
 
 if audio_gravado is not None:
     audio_bytes = audio_gravado.read()
@@ -417,6 +427,5 @@ if audio_gravado is not None:
         if pergunta_voz:
             processar_pergunta(pergunta_voz)
 
-# ── Entrada por TEXTO ──
-if pergunta_texto := st.chat_input("Ou escreva aqui a sua pergunta…"):
+if pergunta_texto := st.chat_input("Escreva aqui a sua pergunta…"):
     processar_pergunta(pergunta_texto)
